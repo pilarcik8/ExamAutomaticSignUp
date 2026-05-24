@@ -1,10 +1,11 @@
 ﻿using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
+using System.Globalization;
 
 
-var configFilePath = "../../../config.txt";
+const string configFilePath = "../../../config.txt";
 
-string username, password, url;
+string username, password, url, dateStr;
 
 GetInput(out username, out password, out url);
 
@@ -13,7 +14,7 @@ driver.Navigate().GoToUrl(url);
 
 if (NeedToLogIn(driver))
 {
-    LogIn(driver, username, password);
+    await LogIn(driver, username, password);
     driver.Navigate().GoToUrl(url);
 }
 
@@ -29,11 +30,13 @@ void GetInput(out string username, out string password, out string url)
         fileLines = new string[0];
     }
 
-    if (fileLines.Length < 3)
+    if (fileLines.Length != 4)
     {
+        Console.WriteLine("Config file not found or invalid. Please enter the required information:");
         username = WaitForUsername();
         password = WaitForPassword();
         url = WaitForUrl();
+        dateStr = WaitForDate();
     }
     else
     {
@@ -79,6 +82,39 @@ string WaitForUrl()
     return url;
 }
 
+// did not check if it works, who cares, nobody will use this, not even me, just fun
+string WaitForDate()
+{
+    Console.WriteLine("Enter date (dd.MM.yyyy / hh:mm):");
+
+    //012345678901234567
+    //18.05.2026 / 08:00
+    string dateStr = Console.ReadLine();
+    string day = dateStr.Substring(0, 2);
+    string month = dateStr.Substring(3, 2);
+    string year = dateStr.Substring(6, 4);
+    string hour = dateStr.Substring(13, 2);
+    string minute = dateStr.Substring(16, 2);
+
+    int dayInt, monthInt, yearInt, hourInt, minuteInt;
+    if (!int.TryParse(day, out dayInt) || !int.TryParse(month, out monthInt) || !int.TryParse(year, out yearInt) || !int.TryParse(hour, out hourInt) || !int.TryParse(minute, out minuteInt))
+    {
+        Console.WriteLine("Invalid date format. Please enter again.");
+        return WaitForDate();
+    }
+
+    Calendar calendar = CultureInfo.CurrentCulture.Calendar;
+    try
+    {
+        calendar.ToDateTime(yearInt, monthInt, dayInt, hourInt, minuteInt, 0, 0); // this will throw an exception if the date is not valid (e.g. 30.02.2024)
+    } catch { 
+        Console.WriteLine("Invalid date. Please enter again.");
+        return WaitForDate();
+    }
+
+    return dateStr;
+}
+
 bool NeedToLogIn(IWebDriver driver)
 {
     var loginButton = driver.FindElements(By.Id("login"));
@@ -87,7 +123,7 @@ bool NeedToLogIn(IWebDriver driver)
     return false;
 }
 
-void LogIn(IWebDriver driver, string username, string password)
+async Task LogIn(IWebDriver driver, string username, string password)
 {
     var usernameInput = driver.FindElement(By.Id("meno"));
     var passwordInput = driver.FindElement(By.Id("heslo"));
@@ -95,4 +131,5 @@ void LogIn(IWebDriver driver, string username, string password)
     usernameInput.SendKeys(username);
     passwordInput.SendKeys(password);
     loginButton.Click();
+    await Task.Delay(1000);
 }
